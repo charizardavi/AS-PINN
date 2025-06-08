@@ -3,9 +3,16 @@ from importlib import import_module
 from pathlib import Path
 import yaml
 import logging
-
 from a_pinn.trainers.vanilla import VanillaTrainer
+from a_pinn.trainers.autoscale import AutoScaleTrainer
+
 from a_pinn.utils.metrics import benchmark_burgers, benchmark_residual
+
+TRAINER_MAP = {
+    "vanilla": VanillaTrainer,
+    "autoscale": AutoScaleTrainer,
+}
+
 
 PDE_MAP = {
     "burgers": "a_pinn.pdes.burgers",
@@ -34,7 +41,17 @@ def _run_from_cfg(cfg_path: Path):
     pde_mod = _load_pde_module(pde_key)
 
     train_cfg = cfg.get("train", {})
-    trainer = VanillaTrainer(
+    trainer_type = train_cfg.get("trainer", "vanilla").lower()
+
+    if trainer_type not in TRAINER_MAP:
+        logging.error(
+            "Unknown trainer '%s'. Allowed: %s", trainer_type, list(TRAINER_MAP)
+        )
+        sys.exit(1)
+    
+    TrainerClass = TRAINER_MAP[trainer_type]
+
+    trainer = TrainerClass(
         name=pde_key,
         pde_module=pde_mod,
         num_domain=int(train_cfg.get("num_domain", 20_000)),
@@ -44,13 +61,21 @@ def _run_from_cfg(cfg_path: Path):
         learning_rate=float(train_cfg.get("learning_rate", 1e-3)),
         output_dir=Path(train_cfg.get("out_dir", "./experiments")),
     )
-    logging.info("Starting training on %s", pde_key)
-    n_iter = train_cfg.get("iterations", 20_000)
+
+    logging.info("Starting %s training on %s", trainer_type, pde_key)
+    n_iter = int(train_cfg.get("iterations", 20_000))
     trainer.train(iterations=n_iter)
-    ckpt = trainer.output_dir / "model.ckpt"
+
+    ckpt_files = list(trainer.output_dir.glob("model_*"))
+    
+    if not ckpt_files:
+        logging.error("No checkpoint found in %s", trainer.output_dir)
+        sys.exit(1)
+
+    ckpt = max(ckpt_files, key=lambda p: p.stat().st_mtime)
 
     eval_cfg = cfg.get("eval", {})
-    n_test = eval_cfg.get("n_test", 1000)
+    n_test = int(eval_cfg.get("n_test", 1000))
     if pde_key == "burgers":
         benchmark_burgers(pde_mod, ckpt, n=n_test)
     else:

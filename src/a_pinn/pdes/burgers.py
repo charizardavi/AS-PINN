@@ -5,7 +5,7 @@ import math
 NU = 0.01 / math.pi
 
 output_size = 1
-
+input_dim = 2
 
 def residual(x, u):
     u_t = dde.grad.jacobian(u, x, i=0, j=1)

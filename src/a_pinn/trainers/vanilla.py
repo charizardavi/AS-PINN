@@ -3,8 +3,12 @@ import deepxde as dde
 from pathlib import Path
 import matplotlib.pyplot as plt
 import pandas as pd
+import numpy as np
 
 from ..nets.fnn import make_fnn
+
+dde.backend.set_default_backend("pytorch")
+dde.config.set_random_seed(21)
 
 class VanillaTrainer:
     def __init__(
@@ -18,9 +22,6 @@ class VanillaTrainer:
         hidden_units: int = 128,
         output_dir: str | Path = "./experiments",
     ) -> None:
-        dde.backend.set_default_backend("pytorch")
-        dde.config.set_random_seed(21)
-
         self.name = name
         self.pde = pde_module
         self.geomtime = pde_module.geom_time()
@@ -33,7 +34,7 @@ class VanillaTrainer:
             num_initial=num_bc,
         )
 
-        net = make_fnn([2] + [hidden_units] * hidden_layers + [pde_module.output_size])
+        net = make_fnn([pde_module.input_dim] + [hidden_units] * hidden_layers + [pde_module.output_size])
 
         self.model = dde.Model(self.data, net)
         self.model.compile("adam", lr=learning_rate)
@@ -41,23 +42,20 @@ class VanillaTrainer:
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def train(self, iterations: int = 20_000) -> None:
-        losshistory, train_state = self.model.train(iterations=iterations)
-        self.model.save(self.output_dir / "model_vanilla.ckpt")
+        losshistory, train_state = self.model.train(iterations=iterations, display_every=1)
+        self.model.save(self.output_dir / "model_vanilla")
 
         total_loss = [sum(l) for l in losshistory.loss_train]
+        steps = losshistory.steps
 
-        df = pd.DataFrame(
-            {
-                "iterations": range(1, len(total_loss) + 1),
-                "loss": total_loss,
-            }
-        )
-
+        df = pd.DataFrame({"step": steps, "loss": total_loss})
         df.to_csv(self.output_dir / "loss_history_vanilla.csv", index=False)
+        
+        print(df)
 
         plt.figure()
-        plt.plot(df["iterations"], df["loss"], label="Total Loss (Vanilla)")
-        plt.xlabel("Iteration")
+        plt.plot(df["step"], df["loss"], label="Total Loss (Vanilla)")
+        plt.xlabel("Step")
         plt.ylabel("Loss")
         plt.title("Training loss")
         plt.legend()

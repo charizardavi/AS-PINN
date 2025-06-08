@@ -5,6 +5,9 @@ from typing import Tuple
 import numpy as np
 import deepxde as dde
 
+from a_pinn.nets.fnn import make_fnn
+from a_pinn.utils.autoscale import make_scaled_fnn
+
 
 NU = 0.01 / np.pi
 
@@ -13,8 +16,6 @@ def cole_hopf(x: np.ndarray, t: np.ndarray) -> np.ndarray:
     num = -2 * np.pi * a * np.sin(np.pi * x)
     den = 1 + 2 * a * np.cos(np.pi * x) + a**2
     return np.where(t == 0, -np.sin(np.pi * x), num / den)
-
-
 
 def rel_l2(pred: np.ndarray, truth: np.ndarray) -> float:
     return np.linalg.norm(pred - truth) / np.linalg.norm(truth)
@@ -46,9 +47,20 @@ def _load_model(pde_module, ckpt_path: Path) -> dde.Model:
         num_boundary=1,
         num_initial=1,
     )
-    net = dde.maps.FNN([2] + [128] * 8 + [1], "tanh", "Glorot normal")
+    
+    if "autoscale" in ckpt_path.stem:
+        net = make_scaled_fnn(
+            [pde_module.input_dim] + [128]*8 + [pde_module.output_size],
+            activation="tanh",
+            initializer="Glorot normal",
+        )
+    else:
+        net = make_fnn([pde_module.input_dim] + [128]*8 + [pde_module.output_size])
+    
     model = dde.Model(data, net)
+    model.compile("adam", lr=1e-3)
     model.restore(str(ckpt_path))
+
     return model
 
 

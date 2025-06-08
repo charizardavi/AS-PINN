@@ -4,6 +4,7 @@ import numpy as np
 EPSILON = 0.01
 
 output_size = 1
+input_dim = 2
 
 
 def residual(x, u):

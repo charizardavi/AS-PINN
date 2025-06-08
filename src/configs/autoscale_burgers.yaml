@@ -1,7 +1,7 @@
 pde: burgers
 
 train:
-  trainer: vanilla
+  trainer: autoscale
   iterations: 500
   num_domain: 100
   num_bc: 2000

@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import deepxde as dde
 
+reg_lambda = 1e-12
 
 class AutoScale(nn.Module):
     def __init__(
@@ -11,7 +12,7 @@ class AutoScale(nn.Module):
         input_dim: int,
         alpha_init: float = 1.0,
         beta_init: float = 0.0,
-        reg_lambda: float | None = 1e-3,
+    
     ):
         super().__init__()
         assert alpha_init > 0, "alpha_init must be positive."
@@ -33,11 +34,11 @@ class ScaledFNN(nn.Module):
         layers,
         activation="tanh",
         initializer="Glorot normal",
-        reg_lambda: float | None = 1e-3,
     ):
         super().__init__()
-        self.scaler = AutoScale(layers[0], reg_lambda=reg_lambda)
+        self.scaler = AutoScale(layers[0])
         self.fnn = dde.nn.pytorch.FNN(layers, activation, initializer)
+        self.regularizer = getattr(self.fnn, "regularizer", None)
 
     def forward(self, x):
         return self.fnn(self.scaler(x))
@@ -47,6 +48,5 @@ def make_scaled_fnn(
     layers,
     activation="tanh",
     initializer="Glorot normal",
-    reg_lambda: float | None = 1e-3,
 ):
-    return ScaledFNN(layers, activation, initializer, reg_lambda)
+    return ScaledFNN(layers, activation, initializer)
