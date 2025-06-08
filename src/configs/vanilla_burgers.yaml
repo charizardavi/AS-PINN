@@ -1,17 +1,13 @@
-# ------------------------------------------------------------------
-# Vanilla Burgers baseline – train *then* benchmark
-# ------------------------------------------------------------------
+pde: burgers
 
-pde: burgers                     
-
-train:                           
-  iterations:   20000
-  num_domain:   80000            
-  num_bc:       2000
+train:
+  iterations: 20000
+  num_domain: 80000            
+  num_bc: 2000
   learning_rate: 1e-3
   hidden_layers: 8
   hidden_units: 128
-  out_dir:      experiments
+  out_dir: experiments
 
-eval:                            
-  n_test:       10000
+eval:
+  n_test: 10000
