@@ -1,0 +1,2 @@
+- DeepXDE: https://github.com/lululxvi/deepxde
+- RAD, RAR-D: https://arxiv.org/pdf/2207.10289
