@@ -6,7 +6,6 @@ import pandas as pd
 
 from ..nets.fnn import make_fnn
 
-
 class VanillaTrainer:
     def __init__(
         self,
@@ -19,6 +18,7 @@ class VanillaTrainer:
         hidden_units: int = 128,
         output_dir: str | Path = "./experiments",
     ) -> None:
+        dde.backend.set_default_backend("pytorch")
         dde.config.set_random_seed(21)
 
         self.name = name
@@ -41,20 +41,26 @@ class VanillaTrainer:
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def train(self, iterations: int = 20_000) -> None:
-        history = self.model.train(iterations=iterations)
-        self.model.save(self.output_dir / "model.ckpt")
-        
-        df = pd.DataFrame(history.loss_history, columns=["loss", *history.metrics])
+        losshistory, train_state = self.model.train(iterations=iterations)
+        self.model.save(self.output_dir / "model_vanilla.ckpt")
 
-        df["iterations"] = range(1, len(df) + 1)
-        df.to_csv(self.output_dir / "loss_history.csv", index=False)
+        total_loss = [sum(l) for l in losshistory.loss_train]
+
+        df = pd.DataFrame(
+            {
+                "iterations": range(1, len(total_loss) + 1),
+                "loss": total_loss,
+            }
+        )
+
+        df.to_csv(self.output_dir / "loss_history_vanilla.csv", index=False)
 
         plt.figure()
-        plt.plot(df["iterations"], df["loss"], label="Total Loss")
+        plt.plot(df["iterations"], df["loss"], label="Total Loss (Vanilla)")
         plt.xlabel("Iteration")
         plt.ylabel("Loss")
-        plt.title("Training Loss over Iterations")
+        plt.title("Training loss")
         plt.legend()
         plt.grid(True)
-        plt.savefig(self.output_dir / "loss_plot.png")
+        plt.savefig(self.output_dir / "loss_plot_vanilla.png")
         plt.close()
