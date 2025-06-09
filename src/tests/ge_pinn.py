@@ -7,9 +7,9 @@ from deepxde.geometry.geometry_2d import Rectangle, Disk
 import numpy as np
 
 
-NUM_DOMAIN = 5000
-NUM_BOUNDARY = 1000
-NUM_COLL_POINTS = NUM_DOMAIN + NUM_BOUNDARY  
+NUM_DOMAIN = 100  
+NUM_BOUNDARY =  10
+NUM_COLL_POINTS = NUM_DOMAIN + NUM_BOUNDARY
 
 
 class GE_PINN(nn.Module):
@@ -22,7 +22,7 @@ class GE_PINN(nn.Module):
         self.num_neighbors = num_neighbors
 
         irreps_in = Irreps("0e")
-        irreps_out = Irreps("0e + 1o") 
+        irreps_out = Irreps("0e + 1o")
 
         self.network = GatePointsNetwork(
             irreps_in=irreps_in,
@@ -46,14 +46,15 @@ class GE_PINN(nn.Module):
             coords = torch.cat([x, zeros], dim=1)
         else:
             coords = x
-        node_inputs = torch.ones(coords.shape[0], self.network.irreps_in.dim, device=device)
+        node_inputs = torch.ones(
+            coords.shape[0], self.network.irreps_in.dim, device=device
+        )
         data_dict = {"pos": coords, "x": node_inputs}
-        latent = self.network(data_dict) 
+        latent = self.network(data_dict)
         vec = self.to_vec(latent)
         p = self.to_p(latent)
         uv = vec[:, :2] if self.dim == 2 else vec
         return torch.cat([uv, p], dim=1)
-
 
 
 def navier_stokes(x, y):
@@ -62,14 +63,22 @@ def navier_stokes(x, y):
     for comp in [0, 1, 2]:
         for axis in [0, 1]:
             grads[f"d{comp}_{axis}"] = dde.grad.jacobian(y, x, i=comp, j=axis)
-    grads.update({
-        f"d{comp}2_{axis}": dde.grad.hessian(y, x, i=comp, j=axis)
-        for comp in [0, 1] for axis in [0, 1]
-    })
+    grads.update(
+        {
+            f"d{comp}_{axis}_{axis}": dde.grad.hessian(y, x, i=comp, j=axis)
+            for comp in [0, 1]
+            for axis in [0, 1]
+        }
+    )
     Re = 100.0
-    eq1 = u * grads['d0_0'] + v * grads['d0_1'] + grads['d2_0'] - (1/Re) * (grads['d0_2_0'] + grads['d0_2_1'])
-    eq2 = u * grads['d1_0'] + v * grads['d1_1'] + grads['d2_1'] - (1/Re) * (grads['d1_2_0'] + grads['d1_2_1'])
-    eq3 = grads['d0_0'] + grads['d1_1']
+    lap_u = grads["d0_0_0"] + grads["d0_1_1"]
+    lap_v = grads["d1_0_0"] + grads["d1_1_1"]
+
+    eq1 = u * grads["d0_0"] + v * grads["d0_1"] + grads["d2_0"] - (1/Re) * lap_u
+
+    eq2 = u * grads["d1_0"] + v * grads["d1_1"] + grads["d2_1"] - (1/Re) * lap_v
+
+    eq3 = grads["d0_0"] + grads["d1_1"]
     return eq1, eq2, eq3
 
 
@@ -77,18 +86,23 @@ rect = Rectangle([0, 0], [2, 1])
 disk = Disk([0.2, 0.5], 0.1)
 domain = rect - disk
 
+
 def inflow(x, on_boundary):
     return on_boundary and np.isclose(x[0], 0.0)
+
 
 def outflow(x, on_boundary):
     return on_boundary and np.isclose(x[0], 2.0)
 
+
 def walls(x, on_boundary):
     return on_boundary and (np.isclose(x[1], 0.0) or np.isclose(x[1], 1.0))
+
 
 def cylinder(x, on_boundary):
     r = np.linalg.norm(x - np.array([0.2, 0.5]))
     return on_boundary and np.isclose(r, 0.1, atol=1e-3)
+
 
 bcs = [
     dde.DirichletBC(domain, lambda x: 1.0, inflow, component=0),
