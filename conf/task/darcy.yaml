@@ -1,0 +1,2 @@
+_target_: src.tasks.darcy.DarcyTask
+grid_size: 64

@@ -1,0 +1,17 @@
+device: cuda
+defaults:
+  - _self_ 
+  - model: fno64
+  - task: darcy
+  - adapter: film
+  - train: default
+
+hydra:
+  job_logging:
+    root:
+      handlers: [console, file]
+    handlers:
+      file:
+        class: logging.FileHandler
+        filename: train.log
+        level: INFO

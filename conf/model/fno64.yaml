@@ -1,0 +1,9 @@
+_target_: src.models.fno.FNOBackbone
+in_ch: 1
+out_ch: 1
+width: 64
+depth: 5
+n_modes_height: 16
+n_modes_width:  16
+embed_dim:      2      # ← make it explicit
+ckpt_path: ${hydra:runtime.cwd}/checkpoints/darcy_fno64.pt
